@@ -1,0 +1,148 @@
+export interface ScoreBrief {
+  date: string;
+  funding_score: number;
+  announcement_score: number;
+  resource_score: number;
+  commodity_score: number;
+  risk_score: number;
+  cycle_score: number;
+  label: string;
+  components?: Record<string, unknown> | null;
+}
+
+export interface StockWithScore {
+  id: number;
+  code: string;
+  name: string;
+  commodity: string;
+  stage: string;
+  active: boolean;
+  notes: string;
+  resource_score_override: number | null;
+  risk_score_override: number | null;
+  latest_score: ScoreBrief | null;
+  last_close: number | null;
+  last_bar_date: string | null;
+  day_change_pct: number | null;
+  today_signals: string[];
+}
+
+export interface PriceBar {
+  date: string;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
+}
+
+export interface Announcement {
+  id: number;
+  code: string;
+  ann_id: string;
+  headline: string;
+  ann_date: string;
+  url: string;
+  price_sensitive: boolean;
+  ann_type: string;
+  type_score: number;
+  matched_keywords: string[];
+  ai_summary: string | null;
+}
+
+export interface SignalReturn {
+  horizon_days: number;
+  entry_price: number | null;
+  return_pct: number | null;
+  benchmark_return_pct: number | null;
+  status: "pending" | "filled" | "unavailable";
+}
+
+export interface Signal {
+  id: number;
+  code: string;
+  stock_name: string;
+  date: string;
+  signal_type: string;
+  source: "live" | "replay";
+  label: string | null;
+  reason: string;
+  evidence: Record<string, unknown>;
+  price_at_signal: number;
+  cycle_score_at_signal: number | null;
+  returns: SignalReturn[];
+}
+
+export interface BacktestCell {
+  horizon_days: number;
+  n: number;
+  win_rate?: number | null;
+  avg?: number | null;
+  median?: number | null;
+  max?: number | null;
+  min?: number | null;
+  avg_excess?: number | null;
+  low_sample: boolean;
+}
+
+export interface BacktestGroup {
+  group: string;
+  cells: BacktestCell[];
+  unavailable: number;
+}
+
+export interface BacktestSummary {
+  group_by: string;
+  source: string;
+  total_signals: number;
+  groups: BacktestGroup[];
+}
+
+export interface ReportContent {
+  report_date: string;
+  top: {
+    code: string;
+    name: string;
+    commodity: string;
+    cycle_score: number;
+    label: string;
+    day_change_pct: number | null;
+  }[];
+  signals: { code: string; type: string; label: string | null; reason: string; price: number }[];
+  announcements: {
+    code: string;
+    type: string;
+    headline: string;
+    price_sensitive: boolean;
+    url: string;
+  }[];
+  movers: { code: string; day_change_pct: number }[];
+  source_degraded: string[];
+  disclaimer: string;
+}
+
+export interface DailyReport {
+  report_date: string;
+  content: ReportContent;
+  pushed: boolean;
+  pushed_at: string | null;
+  push_error: string | null;
+}
+
+export interface PipelineRun {
+  id: number;
+  run_at: string;
+  trigger: string;
+  status: string;
+  stats: Record<string, unknown>;
+  finished_at: string | null;
+}
+
+export interface AppConfig {
+  weights: Record<string, number>;
+  label_thresholds: Record<string, number>;
+  signal_thresholds: Record<string, number>;
+  commodity_instruments: Record<string, string>;
+  benchmark_instrument: string;
+  [key: string]: unknown;
+}

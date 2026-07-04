@@ -1,0 +1,307 @@
+import {
+  Alert,
+  Button,
+  Card,
+  Form,
+  Input,
+  InputNumber,
+  Modal,
+  Popconfirm,
+  Select,
+  Space,
+  Table,
+  Tag,
+  Typography,
+  message,
+} from "antd";
+import { useCallback, useEffect, useState } from "react";
+
+import { api } from "../api/client";
+import type { AppConfig, PipelineRun, StockWithScore } from "../api/types";
+
+const COMMODITIES = ["gold", "copper", "lithium", "uranium", "rare_earth"];
+
+function WatchlistCard({ onChanged }: { onChanged: () => void }) {
+  const [stocks, setStocks] = useState<StockWithScore[]>([]);
+  const [adding, setAdding] = useState(false);
+  const [form] = Form.useForm();
+
+  const load = useCallback(async () => {
+    const [active, inactive] = await Promise.all([
+      api.get<StockWithScore[]>("/stocks?active=true"),
+      api.get<StockWithScore[]>("/stocks?active=false"),
+    ]);
+    setStocks([...active, ...inactive].sort((a, b) => a.code.localeCompare(b.code)));
+  }, []);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const add = async () => {
+    const values = await form.validateFields();
+    try {
+      await api.post("/stocks", values);
+      message.success(`${values.code.toUpperCase()} 已加入`);
+      setAdding(false);
+      form.resetFields();
+      await load();
+      onChanged();
+    } catch (e) {
+      message.error((e as Error).message);
+    }
+  };
+
+  const deactivate = async (code: string) => {
+    await api.del(`/stocks/${code}`);
+    await load();
+    onChanged();
+  };
+
+  const reactivate = async (code: string) => {
+    await api.put(`/stocks/${code}`, { active: true });
+    await load();
+    onChanged();
+  };
+
+  return (
+    <Card
+      size="small"
+      title="股票池管理"
+      extra={
+        <Button size="small" type="primary" onClick={() => setAdding(true)}>
+          添加
+        </Button>
+      }
+    >
+      <Table
+        size="small"
+        rowKey="code"
+        dataSource={stocks}
+        pagination={{ pageSize: 10, showSizeChanger: false }}
+        columns={[
+          { title: "代码", dataIndex: "code", width: 80 },
+          { title: "公司", dataIndex: "name", ellipsis: true },
+          { title: "品种", dataIndex: "commodity", width: 110, render: (c: string) => <Tag>{c}</Tag> },
+          { title: "阶段", dataIndex: "stage", width: 100 },
+          {
+            title: "状态",
+            dataIndex: "active",
+            width: 80,
+            render: (a: boolean) => (a ? <Tag color="green">活跃</Tag> : <Tag>停用</Tag>),
+          },
+          {
+            title: "操作",
+            key: "op",
+            width: 100,
+            render: (_, s) =>
+              s.active ? (
+                <Popconfirm title={`停用 ${s.code}?`} onConfirm={() => deactivate(s.code)}>
+                  <Button size="small" danger type="link">
+                    停用
+                  </Button>
+                </Popconfirm>
+              ) : (
+                <Button size="small" type="link" onClick={() => reactivate(s.code)}>
+                  启用
+                </Button>
+              ),
+          },
+        ]}
+      />
+      <Modal title="添加股票" open={adding} onOk={add} onCancel={() => setAdding(false)} destroyOnClose>
+        <Form form={form} layout="vertical">
+          <Form.Item name="code" label="ASX 代码" rules={[{ required: true }]}>
+            <Input placeholder="如 DYL" />
+          </Form.Item>
+          <Form.Item name="name" label="公司名" rules={[{ required: true }]}>
+            <Input />
+          </Form.Item>
+          <Form.Item name="commodity" label="品种" rules={[{ required: true }]}>
+            <Select options={COMMODITIES.map((c) => ({ value: c, label: c }))} />
+          </Form.Item>
+          <Form.Item name="stage" label="阶段" initialValue="explorer">
+            <Select
+              options={[
+                { value: "explorer", label: "explorer" },
+                { value: "developer", label: "developer" },
+              ]}
+            />
+          </Form.Item>
+        </Form>
+      </Modal>
+    </Card>
+  );
+}
+
+function ConfigCard() {
+  const [config, setConfig] = useState<AppConfig | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  const load = useCallback(async () => {
+    setConfig(await api.get<AppConfig>("/config"));
+  }, []);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  if (!config) return <Card size="small" title="评分与信号参数" loading />;
+
+  const setWeight = (k: string, v: number | null) =>
+    setConfig({ ...config, weights: { ...config.weights, [k]: v ?? 0 } });
+  const setThreshold = (group: "label_thresholds" | "signal_thresholds", k: string, v: number | null) =>
+    setConfig({ ...config, [group]: { ...config[group], [k]: v ?? 0 } });
+
+  const weightSum = Object.values(config.weights).reduce((a, b) => a + b, 0);
+
+  const save = async () => {
+    setSaving(true);
+    try {
+      await api.put("/config", {
+        weights: config.weights,
+        label_thresholds: config.label_thresholds,
+        signal_thresholds: config.signal_thresholds,
+      });
+      message.success("已保存,下次 pipeline 生效");
+    } catch (e) {
+      message.error((e as Error).message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Card size="small" title="评分与信号参数">
+      <Typography.Text strong>权重(需和为 1.0,当前 {weightSum.toFixed(2)})</Typography.Text>
+      <Space wrap style={{ margin: "8px 0 16px" }}>
+        {Object.entries(config.weights).map(([k, v]) => (
+          <span key={k}>
+            {k}{" "}
+            <InputNumber size="small" min={0} max={1} step={0.05} value={v} onChange={(nv) => setWeight(k, nv)} />
+          </span>
+        ))}
+      </Space>
+      <br />
+      <Typography.Text strong>标签阈值</Typography.Text>
+      <Space wrap style={{ margin: "8px 0 16px" }}>
+        {Object.entries(config.label_thresholds).map(([k, v]) => (
+          <span key={k}>
+            {k}{" "}
+            <InputNumber size="small" min={0} max={100} value={v} onChange={(nv) => setThreshold("label_thresholds", k, nv)} />
+          </span>
+        ))}
+      </Space>
+      <br />
+      <Typography.Text strong>信号阈值</Typography.Text>
+      <Space wrap style={{ margin: "8px 0 16px" }}>
+        {Object.entries(config.signal_thresholds).map(([k, v]) => (
+          <span key={k}>
+            {k}{" "}
+            <InputNumber size="small" value={v} onChange={(nv) => setThreshold("signal_thresholds", k, nv)} />
+          </span>
+        ))}
+      </Space>
+      <br />
+      <Typography.Text type="secondary">
+        商品映射: {JSON.stringify(config.commodity_instruments)} · 基准: {config.benchmark_instrument}
+      </Typography.Text>
+      <br />
+      <Button type="primary" onClick={save} loading={saving} style={{ marginTop: 12 }}>
+        保存参数
+      </Button>
+    </Card>
+  );
+}
+
+function OpsCard() {
+  const [runs, setRuns] = useState<PipelineRun[]>([]);
+  const [busy, setBusy] = useState(false);
+
+  const load = useCallback(async () => {
+    setRuns(await api.get<PipelineRun[]>("/admin/runs?limit=10"));
+  }, []);
+
+  useEffect(() => {
+    void load();
+    const t = setInterval(load, 5000);
+    return () => clearInterval(t);
+  }, [load]);
+
+  const run = async (path: string, label: string) => {
+    setBusy(true);
+    try {
+      const res = await api.post<{ detail: string }>(path);
+      message.info(`${label}: ${res.detail}`);
+    } catch (e) {
+      message.error((e as Error).message);
+    } finally {
+      setBusy(false);
+      await load();
+    }
+  };
+
+  return (
+    <Card size="small" title="运维">
+      <Space wrap style={{ marginBottom: 12 }}>
+        <Button type="primary" loading={busy} onClick={() => run("/admin/run-pipeline", "pipeline")}>
+          立即跑 Pipeline
+        </Button>
+        <Button loading={busy} onClick={() => run("/admin/run-replay?days=400", "replay")}>
+          重放历史信号
+        </Button>
+        <Button loading={busy} onClick={() => run("/admin/test-telegram", "telegram")}>
+          测试 Telegram
+        </Button>
+      </Space>
+      <Table
+        size="small"
+        rowKey="id"
+        dataSource={runs}
+        pagination={false}
+        columns={[
+          { title: "时间", dataIndex: "run_at", width: 170, render: (d: string) => d.replace("T", " ").slice(0, 19) },
+          { title: "触发", dataIndex: "trigger", width: 90 },
+          {
+            title: "状态",
+            dataIndex: "status",
+            width: 90,
+            render: (s: string) => (
+              <Tag color={s === "success" ? "green" : s === "partial" ? "orange" : s === "running" ? "blue" : "red"}>
+                {s}
+              </Tag>
+            ),
+          },
+          {
+            title: "统计",
+            key: "stats",
+            ellipsis: true,
+            render: (_, r) => {
+              const s = r.stats as Record<string, unknown>;
+              return `bars+${s.prices_added ?? "-"} 公告+${s.announcements_added ?? "-"} 信号+${s.signals_added ?? "-"} 用时${s.duration_s ?? "-"}s`;
+            },
+          },
+        ]}
+      />
+    </Card>
+  );
+}
+
+export default function Settings() {
+  const [, setTick] = useState(0);
+  return (
+    <Space direction="vertical" size={16} style={{ width: "100%" }}>
+      <Typography.Title level={4} style={{ margin: 0 }}>
+        设置
+      </Typography.Title>
+      <Alert
+        type="info"
+        showIcon
+        message="Telegram 推送配置在 backend/.env(TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID),未配置时日报仍会生成并入库。"
+      />
+      <OpsCard />
+      <WatchlistCard onChanged={() => setTick((t) => t + 1)} />
+      <ConfigCard />
+    </Space>
+  );
+}
