@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from .api.routes import health
+from .api.routes import health, stocks
 from .config import settings
 from .database import SessionLocal, init_db
 from .services.config_service import ensure_defaults
@@ -35,3 +35,4 @@ app.add_middleware(
 )
 
 app.include_router(health.router, prefix="/api")
+app.include_router(stocks.router, prefix="/api")

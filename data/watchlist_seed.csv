@@ -1,0 +1,31 @@
+code,name,commodity,stage,notes
+PDI,Predictive Discovery,gold,developer,Bankan gold project Guinea
+MEK,Meeka Metals,gold,developer,Murchison WA
+SMI,Santana Minerals,gold,explorer,Bendigo-Ophir NZ
+BC8,Black Cat Syndicate,gold,developer,Kal East / Paulsens
+AAR,Astral Resources,gold,explorer,Mandilla WA
+MM8,Medallion Metals,gold,explorer,Ravensthorpe WA
+AUC,Ausgold,gold,developer,Katanning WA
+CYL,Catalyst Metals,gold,developer,Plutonic WA
+TTM,Titan Minerals,gold,explorer,Dynasty Ecuador
+HCH,Hot Chili,copper,developer,Costa Fuego Chile
+PEX,Peel Mining,copper,explorer,Cobar NSW
+CNB,Carnaby Resources,copper,explorer,Greater Duchess QLD
+CVV,Caravel Minerals,copper,developer,Caravel WA
+A1M,AIC Mines,copper,developer,Eloise QLD
+WC8,Wildcat Resources,lithium,explorer,Tabba Tabba WA
+GL1,Global Lithium Resources,lithium,explorer,Manna WA
+GT1,Green Technology Metals,lithium,explorer,Seymour Ontario
+AGY,Argosy Minerals,lithium,developer,Rincon Argentina
+VUL,Vulcan Energy Resources,lithium,developer,Zero Carbon Lithium Germany
+DYL,Deep Yellow,uranium,developer,Tumas Namibia
+LOT,Lotus Resources,uranium,developer,Kayelekera Malawi
+BMN,Bannerman Energy,uranium,developer,Etango Namibia
+AGE,Alligator Energy,uranium,explorer,Samphire SA
+PEN,Peninsula Energy,uranium,developer,Lance USA
+EL8,Elevate Uranium,uranium,explorer,Namibia
+ARU,Arafura Rare Earths,rare_earth,developer,Nolans NT
+HAS,Hastings Technology Metals,rare_earth,developer,Yangibana WA
+DRE,Dreadnought Resources,rare_earth,explorer,Mangaroon WA
+MEI,Meteoric Resources,rare_earth,explorer,Caldeira Brazil
+BRE,Brazilian Rare Earths,rare_earth,explorer,Rocha da Rocha Brazil
