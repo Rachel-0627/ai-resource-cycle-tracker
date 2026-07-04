@@ -1,10 +1,22 @@
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
+import json
 
-from ...models import Stock
-from ...schemas import Message, StockCreate, StockUpdate, StockWithScore
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session, joinedload
+
+from ...models import Announcement, PriceBar, ScoreSnapshot, Signal, Stock
+from ...schemas import (
+    AnnouncementOut,
+    Message,
+    PriceBarOut,
+    ScoreBrief,
+    SignalOut,
+    StockCreate,
+    StockUpdate,
+    StockWithScore,
+)
 from ...services.watchlist import build_stock_view
 from ..deps import get_db
+from ..serializers import announcement_out, signal_out
 
 router = APIRouter(prefix="/stocks", tags=["stocks"])
 
@@ -83,3 +95,69 @@ def deactivate_stock(code: str, db: Session = Depends(get_db)):
     stock.active = False
     db.commit()
     return Message(detail=f"stock {stock.code} deactivated")
+
+
+@router.get("/{code}/prices", response_model=list[PriceBarOut])
+def stock_prices(code: str, days: int = 250, db: Session = Depends(get_db)):
+    stock = _get_stock_or_404(db, code)
+    rows = (
+        db.query(PriceBar)
+        .filter_by(stock_id=stock.id)
+        .order_by(PriceBar.date.desc())
+        .limit(min(days, 600))
+        .all()
+    )
+    return [PriceBarOut.model_validate(r) for r in reversed(rows)]
+
+
+@router.get("/{code}/scores", response_model=list[ScoreBrief])
+def stock_scores(code: str, days: int = 90, db: Session = Depends(get_db)):
+    stock = _get_stock_or_404(db, code)
+    rows = (
+        db.query(ScoreSnapshot)
+        .filter_by(stock_id=stock.id)
+        .order_by(ScoreSnapshot.date.desc())
+        .limit(min(days, 400))
+        .all()
+    )
+    return [
+        ScoreBrief(
+            date=r.date,
+            funding_score=r.funding_score,
+            announcement_score=r.announcement_score,
+            resource_score=r.resource_score,
+            commodity_score=r.commodity_score,
+            risk_score=r.risk_score,
+            cycle_score=r.cycle_score,
+            label=r.label,
+            components=json.loads(r.components or "{}"),
+        )
+        for r in reversed(rows)
+    ]
+
+
+@router.get("/{code}/announcements", response_model=list[AnnouncementOut])
+def stock_announcements(code: str, limit: int = 50, db: Session = Depends(get_db)):
+    stock = _get_stock_or_404(db, code)
+    rows = (
+        db.query(Announcement)
+        .filter_by(stock_id=stock.id)
+        .order_by(Announcement.ann_date.desc())
+        .limit(min(limit, 200))
+        .all()
+    )
+    return [announcement_out(a, stock.code) for a in rows]
+
+
+@router.get("/{code}/signals", response_model=list[SignalOut])
+def stock_signals(code: str, limit: int = 100, db: Session = Depends(get_db)):
+    stock = _get_stock_or_404(db, code)
+    rows = (
+        db.query(Signal)
+        .filter_by(stock_id=stock.id)
+        .options(joinedload(Signal.returns))
+        .order_by(Signal.date.desc())
+        .limit(min(limit, 500))
+        .all()
+    )
+    return [signal_out(s, stock) for s in rows]
