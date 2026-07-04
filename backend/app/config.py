@@ -16,8 +16,10 @@ class Settings(BaseSettings):
     db_path: str = str(BASE_DIR / "data" / "tracker.db")
     timezone: str = "Australia/Sydney"
 
-    # data sources
-    asx_api_base: str = "https://www.asx.com.au/asx/1"
+    # data sources — the markitdigital gateway is what asx.com.au itself uses;
+    # the access token below is the public one embedded in the ASX website.
+    asx_api_base: str = "https://asx.api.markitdigital.com/asx-research/1.0"
+    asx_access_token: str = "83ff96335c2d45a094df02a206a39ff4"
     announcement_source: str = "asx_json"
     announcement_fetch_count: int = 20
     request_delay_min: float = 1.5

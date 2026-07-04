@@ -1,0 +1,43 @@
+{
+  "data": {
+    "displayName": "EXAMPLE MINING LIMITED",
+    "issueType": "CS",
+    "symbol": "EXM",
+    "xid": "99999",
+    "items": [
+      {
+        "announcementType": "PROGRESS REPORT",
+        "date": "2026-06-30T00:18:00.000Z",
+        "documentKey": "2924-03100001-6A1330001",
+        "fileSize": "1230KB",
+        "headline": "High-Grade Drill Results Extend Mineralisation at Depth",
+        "isPriceSensitive": true,
+        "url": ""
+      },
+      {
+        "announcementType": "ISSUED CAPITAL",
+        "date": "2026-06-24T00:05:00.000Z",
+        "documentKey": "2924-03100002-6A1330002",
+        "fileSize": "220KB",
+        "headline": "Completion of Placement",
+        "isPriceSensitive": false,
+        "url": "https://example.com/custom.pdf"
+      },
+      {
+        "announcementType": "PERIODIC REPORTS",
+        "date": "2026-06-20T22:45:00.000Z",
+        "documentKey": "2924-03100003-6A1330003",
+        "fileSize": "800KB",
+        "headline": "Quarterly Activities Report",
+        "isPriceSensitive": false,
+        "url": ""
+      },
+      {
+        "announcementType": "BROKEN",
+        "headline": "Broken item without a date",
+        "documentKey": "2924-03100004-6A1330004",
+        "url": ""
+      }
+    ]
+  }
+}
