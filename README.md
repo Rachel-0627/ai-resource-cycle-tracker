@@ -22,7 +22,7 @@ ASX 公告 API(markitdigital) ──┤→ 数据层(SQLite) → 规则层(指�
 ## 快速开始
 
 ```bash
-# 1) 后端环境(需要 Python 3.10+,本机用的 Homebrew python3.11)
+# 1) 后端环境(需要 Python 3.10+;macOS/Linux 示例)
 cd backend
 /opt/homebrew/bin/python3.11 -m venv .venv
 .venv/bin/pip install -r requirements.txt
@@ -47,11 +47,43 @@ cd frontend && npm install && npm run dev
 # 打开 http://localhost:5173
 ```
 
+Windows PowerShell 对应命令:
+
+```powershell
+# 1) 后端环境
+cd backend
+py -3.10 -m venv .venv-win
+.\.venv-win\Scripts\python.exe -m pip install -r requirements.txt
+Copy-Item .env.example .env
+
+# 2) 初始化股票池
+cd ..
+backend\.venv-win\Scripts\python.exe scripts\seed_watchlist.py
+backend\.venv-win\Scripts\python.exe scripts\validate_seed.py
+
+# 3) 首次全量跑 + 历史回放
+backend\.venv-win\Scripts\python.exe scripts\run_pipeline.py
+backend\.venv-win\Scripts\python.exe scripts\replay_signals.py --days 400
+
+# 4) 起后端
+cd backend
+.\.venv-win\Scripts\python.exe -m uvicorn app.main:app --port 8000
+
+# 5) 起前端(另开 PowerShell)
+cd frontend
+npm install
+npm run dev
+```
+
+如果前端目录是从 macOS/Linux 拷贝来的,`node_modules/.bin` 可能缺少 Windows `.cmd` 启动脚本,表现为 `tsc is not recognized`。在 Windows 下重新执行一次 `npm install` 即可重建这些脚本。
+
 ## .env 配置(backend/.env)
 
 | 变量 | 说明 |
 |---|---|
 | `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID` | 填了才推送日报;不填则日报仍生成入库,只是跳过推送 |
+| `EMAIL_SMTP_HOST` / `EMAIL_FROM` / `EMAIL_TO` | 填了才通过 SMTP 邮件推送日报;不填则跳过邮件推送 |
+| `EMAIL_SMTP_PORT` / `EMAIL_SMTP_USERNAME` / `EMAIL_SMTP_PASSWORD` / `EMAIL_USE_TLS` | SMTP 端口、登录凭据和 TLS 开关 |
 | `ENABLE_SCHEDULER` | `true` 开启每日自动 pipeline(开发时用 `--reload` 请保持 `false`,避免双跑) |
 | `SCHEDULE_HOUR` / `SCHEDULE_MINUTE` | 默认 18:30 悉尼时间(ASX 16:00 收盘后) |
 | `ASX_ACCESS_TOKEN` | ASX 官网前端内嵌的公开 token,轮换失效时在此覆盖 |
@@ -102,7 +134,11 @@ cd frontend && npm install && npm run dev
 ## 测试
 
 ```bash
-cd backend && .venv/bin/python -m pytest tests/ -q    # 106 个用例,全部离线(fixture),不联网
+cd backend && .venv/bin/python -m pytest tests/ -q    # 111 个用例,全部离线(fixture),不联网
+
+# Windows:
+cd backend
+.\.venv-win\Scripts\python.exe -m pytest tests -q
 ```
 
 覆盖:公告分类优先级/词边界、指标精确值、评分阶梯边界、方向门槛与流动性地板、信号触发矩阵、幂等、回测入场价约定、基准超额、unavailable 判定、回放不污染标签统计。
@@ -114,7 +150,7 @@ backend/app/
 ├── datasources/   # ASX 公告(markitdigital)、yfinance 日线、商品/基准
 ├── analysis/      # 纯函数:indicators / classifier / scoring / signals / ai_stub
 ├── services/      # pipeline 编排、回测、回放、日报、市场数据、配置
-├── notify/        # Telegram(未配置优雅跳过)+ Email stub
+├── notify/        # Telegram(未配置优雅跳过)+ SMTP Email(未配置优雅跳过)
 └── api/routes/    # stocks / signals / announcements / backtest / reports / config / admin
 frontend/src/pages # Ranking / StockDetail / Signals / Backtest / Reports / Settings
 scripts/           # seed_watchlist / validate_seed / run_pipeline / replay_signals
@@ -122,5 +158,5 @@ scripts/           # seed_watchlist / validate_seed / run_pipeline / replay_sign
 
 ## Phase-2 方向
 
-- `ClaudeAnalyzer` 实现 `AnnouncementAnalyzer`:公告 PDF 摘要、grade/宽度/深度结构化提取、质量置信度(接口与落库字段已留好)
-- Email 推送、公告 HTML 抓取 fallback、按回测结果校准权重(数据驱动,不拍脑袋)
+- `ClaudeAnalyzer` 实现 `AnnouncementAnalyzer`:MVP 已支持公告标题摘要/结构化提取;后续可扩展到公告 PDF 全文、grade/宽度/深度结构化提取、质量置信度
+- 公告 HTML 抓取 fallback、按回测结果校准权重(数据驱动,不拍脑袋)

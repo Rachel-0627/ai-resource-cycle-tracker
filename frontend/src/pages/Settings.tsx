@@ -155,6 +155,12 @@ function ConfigCard() {
 
   const weightSum = Object.values(config.weights).reduce((a, b) => a + b, 0);
 
+  const setCommodityInstrument = (k: string, v: string) =>
+    setConfig({
+      ...config,
+      commodity_instruments: { ...config.commodity_instruments, [k]: v.trim() },
+    });
+
   const save = async () => {
     setSaving(true);
     try {
@@ -162,8 +168,11 @@ function ConfigCard() {
         weights: config.weights,
         label_thresholds: config.label_thresholds,
         signal_thresholds: config.signal_thresholds,
+        commodity_instruments: config.commodity_instruments,
+        benchmark_instrument: config.benchmark_instrument,
       });
       message.success("已保存,下次 pipeline 生效");
+      await load();
     } catch (e) {
       message.error((e as Error).message);
     } finally {
@@ -203,9 +212,30 @@ function ConfigCard() {
         ))}
       </Space>
       <br />
-      <Typography.Text type="secondary">
-        商品映射: {JSON.stringify(config.commodity_instruments)} · 基准: {config.benchmark_instrument}
-      </Typography.Text>
+      <Typography.Text strong>商品映射</Typography.Text>
+      <Space wrap style={{ margin: "8px 0 16px" }}>
+        {Object.entries(config.commodity_instruments).map(([k, v]) => (
+          <span key={k}>
+            {k}{" "}
+            <Input
+              size="small"
+              style={{ width: 120 }}
+              value={v}
+              onChange={(e) => setCommodityInstrument(k, e.target.value)}
+            />
+          </span>
+        ))}
+      </Space>
+      <br />
+      <Typography.Text strong>回测基准</Typography.Text>
+      <Space wrap style={{ margin: "8px 0 16px" }}>
+        <Input
+          size="small"
+          style={{ width: 140 }}
+          value={config.benchmark_instrument}
+          onChange={(e) => setConfig({ ...config, benchmark_instrument: e.target.value.trim() })}
+        />
+      </Space>
       <br />
       <Button type="primary" onClick={save} loading={saving} style={{ marginTop: 12 }}>
         保存参数

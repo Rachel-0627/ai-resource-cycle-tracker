@@ -34,6 +34,14 @@ def update_config(payload: dict[str, Any], db: Session = Depends(get_db)) -> dic
                 raise HTTPException(status_code=422, detail="label_thresholds needs high_priority/watch_closely/monitor")
             if not (high > watch > monitor > 0):
                 raise HTTPException(status_code=422, detail="thresholds must satisfy high > watch > monitor > 0")
+        if key == "commodity_instruments":
+            if set(value) != set(DEFAULTS["commodity_instruments"]):
+                raise HTTPException(status_code=422, detail="commodity_instruments must define every commodity")
+            if any(not str(instrument).strip() for instrument in value.values()):
+                raise HTTPException(status_code=422, detail="commodity instrument values must be non-empty")
+        if key == "benchmark_instrument":
+            if not str(value).strip():
+                raise HTTPException(status_code=422, detail="benchmark_instrument must be non-empty")
     for key, value in payload.items():
         set_config(db, key, value)
     return get_all_config(db)

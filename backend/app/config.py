@@ -35,9 +35,22 @@ class Settings(BaseSettings):
     # notifications
     telegram_bot_token: str = ""
     telegram_chat_id: str = ""
+    email_smtp_host: str = ""
+    email_smtp_port: int = 587
+    email_smtp_username: str = ""
+    email_smtp_password: str = ""
+    email_from: str = ""
+    email_to: str = ""
+    email_use_tls: bool = True
 
-    # AI analysis layer (MVP-1: rules only; phase-2 may set "claude")
+    # AI analysis layer. Defaults are intentionally cost-safe: no paid model
+    # request is made unless AI_ANALYZER=claude, ANTHROPIC_API_KEY is present,
+    # and AI_ANALYZER_ALLOW_PAID_CALLS=true.
     ai_analyzer: str = "noop"
+    ai_analyzer_allow_paid_calls: bool = False
+    anthropic_api_key: str = ""
+    anthropic_model: str = "claude-3-5-haiku-latest"
+    anthropic_max_tokens: int = 400
 
 
 settings = Settings()

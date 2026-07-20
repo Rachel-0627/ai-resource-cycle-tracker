@@ -7,10 +7,11 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from ..models import Announcement, DailyReport, ScoreSnapshot, Signal, Stock
+from ..notify.email_stub import EmailNotifier
 from ..notify.telegram import TelegramNotifier
 from .watchlist import build_stock_view
 
-DISCLAIMER = "Research only, not investment advice. 仅供研究参考,不构成投资建议。"
+DISCLAIMER = "Research only, not investment advice. 仅供研究参考，不构成投资建议。"
 TOP_N = 10
 
 
@@ -109,7 +110,7 @@ def build_daily_report(session: Session, run_stats: dict | None = None) -> Daily
 
 
 def render_telegram_html(content: dict) -> str:
-    lines = [f"<b>AI Resource Cycle Tracker — {content['report_date']}</b>", ""]
+    lines = [f"<b>AI Resource Cycle Tracker - {content['report_date']}</b>", ""]
 
     lines.append("<b>Top Cycle Scores</b>")
     if content["top"]:
@@ -118,7 +119,7 @@ def render_telegram_html(content: dict) -> str:
                 f" ({item['day_change_pct']:+.1f}%)" if item.get("day_change_pct") is not None else ""
             )
             lines.append(
-                f"{i}. {item['code']} {item['cycle_score']} — {item['label']}{change}"
+                f"{i}. {item['code']} {item['cycle_score']} - {item['label']}{change}"
             )
     else:
         lines.append("(no scores yet)")
@@ -127,7 +128,7 @@ def render_telegram_html(content: dict) -> str:
     lines.append(f"<b>Signals ({len(content['signals'])})</b>")
     if content["signals"]:
         for sig in content["signals"]:
-            lines.append(f"• {sig['code']} [{sig['type']}] {sig['reason']}")
+            lines.append(f"- {sig['code']} [{sig['type']}] {sig['reason']}")
     else:
         lines.append("(none today)")
 
@@ -135,12 +136,12 @@ def render_telegram_html(content: dict) -> str:
         lines.append("")
         lines.append("<b>Key announcements</b>")
         for ann in content["announcements"]:
-            ps = "⚡" if ann["price_sensitive"] else ""
-            lines.append(f"• {ann['code']} [{ann['type']}]{ps} {ann['headline']}")
+            ps = " [PS]" if ann["price_sensitive"] else ""
+            lines.append(f"- {ann['code']} [{ann['type']}]{ps} {ann['headline']}")
 
     if content["movers"]:
         lines.append("")
-        lines.append("<b>Movers ≥8%</b>")
+        lines.append("<b>Movers >=8%</b>")
         lines.append(
             ", ".join(f"{m['code']} {m['day_change_pct']:+.1f}%" for m in content["movers"])
         )
@@ -148,7 +149,7 @@ def render_telegram_html(content: dict) -> str:
     if content["source_degraded"]:
         lines.append("")
         lines.append(
-            "⚠️ Announcement source degraded for: " + ", ".join(content["source_degraded"])
+            "Announcement source degraded for: " + ", ".join(content["source_degraded"])
         )
 
     lines.append("")
@@ -157,10 +158,22 @@ def render_telegram_html(content: dict) -> str:
 
 
 def push_daily_report(session: Session, report: DailyReport) -> dict:
-    result = TelegramNotifier().send(report.content_text)
-    report.pushed = result.sent
-    report.push_error = result.error
-    if result.sent:
+    channels = {
+        "telegram": TelegramNotifier().send(report.content_text),
+        "email": EmailNotifier().send(report.content_text),
+    }
+    sent_channels = [name for name, result in channels.items() if result.sent]
+    errors = {name: result.error for name, result in channels.items() if result.error}
+    skipped_channels = [name for name, result in channels.items() if result.skipped]
+
+    report.pushed = bool(sent_channels)
+    report.push_error = json.dumps(errors) if errors else None
+    if sent_channels:
         report.pushed_at = datetime.utcnow()
     session.commit()
-    return {"sent": result.sent, "skipped": result.skipped, "error": result.error}
+    return {
+        "sent": bool(sent_channels),
+        "sent_channels": sent_channels,
+        "skipped_channels": skipped_channels,
+        "errors": errors,
+    }

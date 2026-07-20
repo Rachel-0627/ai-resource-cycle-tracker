@@ -5,7 +5,9 @@ juniors; rows with close<=0 are dropped and NaN volumes become 0.
 """
 
 import logging
+import tempfile
 from datetime import date
+from pathlib import Path
 
 import pandas as pd
 import yfinance as yf
@@ -13,6 +15,9 @@ import yfinance as yf
 logger = logging.getLogger(__name__)
 
 EMPTY = pd.DataFrame(columns=["date", "open", "high", "low", "close", "volume"])
+YFINANCE_CACHE_DIR = Path(tempfile.gettempdir()) / "ai-resource-cycle-tracker-yfinance-cache"
+YFINANCE_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+yf.set_tz_cache_location(str(YFINANCE_CACHE_DIR))
 
 
 def fetch_daily(symbol: str, start: date | None = None, period: str = "2y") -> pd.DataFrame:

@@ -28,7 +28,7 @@ def _replay_task(days: int) -> None:
 @router.post("/run-pipeline", response_model=Message)
 def run_pipeline(background: BackgroundTasks):
     background.add_task(_pipeline_task)
-    return Message(detail="pipeline started in background — poll /api/admin/runs")
+    return Message(detail="pipeline started in background; poll /api/admin/runs")
 
 
 @router.post("/run-replay", response_model=Message)
@@ -56,7 +56,7 @@ def list_runs(limit: int = 20, db: Session = Depends(get_db)):
 @router.post("/test-telegram", response_model=Message)
 def test_telegram():
     result = TelegramNotifier().send(
-        "<b>AI Resource Cycle Tracker</b>\nTelegram channel is configured correctly. ✅"
+        "<b>AI Resource Cycle Tracker</b>\nTelegram channel is configured correctly."
     )
     if result.skipped:
         return Message(detail="telegram not configured (set TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID)")
