@@ -52,6 +52,10 @@ class Settings(BaseSettings):
     anthropic_model: str = "claude-3-5-haiku-latest"
     anthropic_max_tokens: int = 400
 
+    # Required for /api/admin/* and /api/config*. Clients may send it as
+    # Authorization: Bearer or X-Admin-Token.
+    admin_api_token: str = ""
+
 
 settings = Settings()
 

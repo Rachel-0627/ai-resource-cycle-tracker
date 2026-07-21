@@ -17,7 +17,13 @@ import {
 import { useCallback, useEffect, useState } from "react";
 
 import { api } from "../api/client";
-import type { AppConfig, PipelineRun, StockWithScore } from "../api/types";
+import type {
+  AppConfig,
+  ConfigHistory,
+  PipelineRun,
+  StockWithScore,
+  WeightCalibration,
+} from "../api/types";
 
 const COMMODITIES = ["gold", "copper", "lithium", "uranium", "rare_earth"];
 
@@ -134,7 +140,177 @@ function WatchlistCard({ onChanged }: { onChanged: () => void }) {
   );
 }
 
-function ConfigCard() {
+function compactJson(value: unknown) {
+  if (value === null || value === undefined) return "empty";
+  const text = typeof value === "string" ? value : JSON.stringify(value);
+  return text.length > 120 ? `${text.slice(0, 120)}...` : text;
+}
+
+function ConfigHistoryCard({ refreshKey }: { refreshKey: number }) {
+  const [rows, setRows] = useState<ConfigHistory[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      setRows(await api.get<ConfigHistory[]>("/config/history?limit=50"));
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void load();
+  }, [load, refreshKey]);
+
+  return (
+    <Card size="small" title="配置变更历史">
+      <Table
+        size="small"
+        rowKey="id"
+        loading={loading}
+        dataSource={rows}
+        pagination={{ pageSize: 8, showSizeChanger: false }}
+        columns={[
+          {
+            title: "时间",
+            dataIndex: "changed_at",
+            width: 170,
+            render: (d: string) => d.replace("T", " ").slice(0, 19),
+          },
+          { title: "配置项", dataIndex: "key", width: 170 },
+          {
+            title: "旧值",
+            dataIndex: "old_value",
+            ellipsis: true,
+            render: (v: unknown) => <Typography.Text code>{compactJson(v)}</Typography.Text>,
+          },
+          {
+            title: "新值",
+            dataIndex: "new_value",
+            ellipsis: true,
+            render: (v: unknown) => <Typography.Text code>{compactJson(v)}</Typography.Text>,
+          },
+          { title: "来源", dataIndex: "source", width: 120 },
+          { title: "操作者", dataIndex: "changed_by", width: 120 },
+        ]}
+      />
+    </Card>
+  );
+}
+
+function WeightCalibrationCard({
+  onApply,
+}: {
+  onApply: (weights: Record<string, number>) => void;
+}) {
+  const [horizon, setHorizon] = useState(20);
+  const [target, setTarget] = useState("excess");
+  const [result, setResult] = useState<WeightCalibration | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      setResult(
+        await api.get<WeightCalibration>(
+          `/backtest/weight-calibration?horizon_days=${horizon}&target=${target}`,
+        ),
+      );
+    } catch (e) {
+      message.error((e as Error).message);
+    } finally {
+      setLoading(false);
+    }
+  }, [horizon, target]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  return (
+    <Card
+      size="small"
+      title="回测权重校准"
+      extra={
+        <Space>
+          <Select
+            size="small"
+            value={horizon}
+            style={{ width: 90 }}
+            onChange={setHorizon}
+            options={[5, 20, 60, 120].map((v) => ({ value: v, label: `+${v}d` }))}
+          />
+          <Select
+            size="small"
+            value={target}
+            style={{ width: 110 }}
+            onChange={setTarget}
+            options={[
+              { value: "excess", label: "超额收益" },
+              { value: "return", label: "绝对收益" },
+            ]}
+          />
+          <Button size="small" onClick={load} loading={loading}>
+            重新计算
+          </Button>
+        </Space>
+      }
+    >
+      {result && (
+        <Space direction="vertical" size={12} style={{ width: "100%" }}>
+          <Space wrap>
+            <Tag>样本 {result.sample_size}</Tag>
+            {result.low_sample && <Tag color="warning">低样本, 保持当前权重</Tag>}
+            <Typography.Text type="secondary">
+              推荐权重只作为建议; 点击应用后仍需保存参数才会生效。
+            </Typography.Text>
+          </Space>
+          <Space wrap>
+            {Object.entries(result.recommended_weights).map(([k, v]) => (
+              <Tag key={k}>
+                {k}: {(v * 100).toFixed(1)}%
+              </Tag>
+            ))}
+            <Button size="small" type="primary" onClick={() => onApply(result.recommended_weights)}>
+              应用推荐权重
+            </Button>
+          </Space>
+          <Table
+            size="small"
+            rowKey="subscore"
+            dataSource={result.diagnostics}
+            pagination={false}
+            columns={[
+              { title: "子分", dataIndex: "subscore", width: 140 },
+              {
+                title: "相关性",
+                dataIndex: "correlation",
+                width: 110,
+                render: (v: number | null) => (v == null ? "-" : v.toFixed(3)),
+              },
+              {
+                title: "高低分收益差",
+                dataIndex: "top_bottom_spread",
+                width: 130,
+                render: (v: number | null) => (v == null ? "-" : `${v.toFixed(2)}%`),
+              },
+              {
+                title: "原始信号",
+                dataIndex: "raw_signal",
+                width: 100,
+                render: (v: number) => v.toFixed(3),
+              },
+            ]}
+          />
+          <Typography.Text type="secondary">{result.method}</Typography.Text>
+        </Space>
+      )}
+    </Card>
+  );
+}
+
+function ConfigCard({ onSaved }: { onSaved: () => void }) {
   const [config, setConfig] = useState<AppConfig | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -161,6 +337,11 @@ function ConfigCard() {
       commodity_instruments: { ...config.commodity_instruments, [k]: v.trim() },
     });
 
+  const applyRecommendedWeights = (weights: Record<string, number>) => {
+    setConfig({ ...config, weights });
+    message.info("推荐权重已填入, 点击保存参数后生效");
+  };
+
   const save = async () => {
     setSaving(true);
     try {
@@ -173,6 +354,7 @@ function ConfigCard() {
       });
       message.success("已保存,下次 pipeline 生效");
       await load();
+      onSaved();
     } catch (e) {
       message.error((e as Error).message);
     } finally {
@@ -240,6 +422,9 @@ function ConfigCard() {
       <Button type="primary" onClick={save} loading={saving} style={{ marginTop: 12 }}>
         保存参数
       </Button>
+      <div style={{ marginTop: 16 }}>
+        <WeightCalibrationCard onApply={applyRecommendedWeights} />
+      </div>
     </Card>
   );
 }
@@ -318,7 +503,7 @@ function OpsCard() {
 }
 
 export default function Settings() {
-  const [, setTick] = useState(0);
+  const [tick, setTick] = useState(0);
   return (
     <Space direction="vertical" size={16} style={{ width: "100%" }}>
       <Typography.Title level={4} style={{ margin: 0 }}>
@@ -331,7 +516,8 @@ export default function Settings() {
       />
       <OpsCard />
       <WatchlistCard onChanged={() => setTick((t) => t + 1)} />
-      <ConfigCard />
+      <ConfigCard onSaved={() => setTick((t) => t + 1)} />
+      <ConfigHistoryCard refreshKey={tick} />
     </Space>
   );
 }

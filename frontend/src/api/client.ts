@@ -1,6 +1,14 @@
+function headers() {
+  const token = globalThis.localStorage?.getItem("adminApiToken")?.trim();
+  return {
+    "Content-Type": "application/json",
+    ...(token ? { "X-Admin-Token": token } : {}),
+  };
+}
+
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const res = await fetch(`/api${path}`, {
-    headers: { "Content-Type": "application/json" },
+    headers: headers(),
     ...options,
   });
   if (!res.ok) {

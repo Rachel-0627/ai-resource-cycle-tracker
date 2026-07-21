@@ -163,6 +163,18 @@ class AppConfig(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
 
 
+class AppConfigHistory(Base):
+    __tablename__ = "app_config_history"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    key: Mapped[str] = mapped_column(String(60), index=True)
+    old_value: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON
+    new_value: Mapped[str] = mapped_column(Text)  # JSON
+    changed_by: Mapped[str] = mapped_column(String(60), default="system")
+    source: Mapped[str] = mapped_column(String(60), default="api")
+    changed_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), index=True)
+
+
 class PipelineRun(Base):
     __tablename__ = "pipeline_runs"
 

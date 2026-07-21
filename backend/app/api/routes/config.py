@@ -1,17 +1,37 @@
 from typing import Any
+import json
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from ...services.config_service import DEFAULTS, get_all_config, set_config
+from ...schemas import ConfigHistoryOut
+from ...services.config_service import DEFAULTS, get_all_config, list_config_history, set_config
 from ..deps import get_db
+from ..security import require_admin_access
 
-router = APIRouter(prefix="/config", tags=["config"])
+router = APIRouter(prefix="/config", tags=["config"], dependencies=[Depends(require_admin_access)])
 
 
 @router.get("")
 def read_config(db: Session = Depends(get_db)) -> dict[str, Any]:
     return get_all_config(db)
+
+
+@router.get("/history", response_model=list[ConfigHistoryOut])
+def read_config_history(limit: int = 50, db: Session = Depends(get_db)):
+    rows = list_config_history(db, limit=limit)
+    return [
+        ConfigHistoryOut(
+            id=row.id,
+            key=row.key,
+            old_value=json.loads(row.old_value) if row.old_value is not None else None,
+            new_value=json.loads(row.new_value),
+            changed_by=row.changed_by,
+            source=row.source,
+            changed_at=row.changed_at,
+        )
+        for row in rows
+    ]
 
 
 @router.put("")
@@ -43,5 +63,5 @@ def update_config(payload: dict[str, Any], db: Session = Depends(get_db)) -> dic
             if not str(value).strip():
                 raise HTTPException(status_code=422, detail="benchmark_instrument must be non-empty")
     for key, value in payload.items():
-        set_config(db, key, value)
+        set_config(db, key, value, changed_by="settings_page", source="api:/config")
     return get_all_config(db)

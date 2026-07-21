@@ -142,6 +142,24 @@ class BacktestSummary(BaseModel):
     groups: list[BacktestGroup]
 
 
+class WeightCalibrationDiagnostic(BaseModel):
+    subscore: str
+    correlation: float | None
+    top_bottom_spread: float | None
+    raw_signal: float
+
+
+class WeightCalibrationOut(BaseModel):
+    horizon_days: int
+    target: str
+    sample_size: int
+    low_sample: bool
+    current_weights: dict[str, float]
+    recommended_weights: dict[str, float]
+    diagnostics: list[WeightCalibrationDiagnostic]
+    method: str
+
+
 # ---------- reports & admin ----------
 
 class DailyReportOut(BaseModel):
@@ -159,3 +177,13 @@ class PipelineRunOut(BaseModel):
     status: str
     stats: dict[str, Any]
     finished_at: datetime | None
+
+
+class ConfigHistoryOut(BaseModel):
+    id: int
+    key: str
+    old_value: Any | None
+    new_value: Any
+    changed_by: str
+    source: str
+    changed_at: datetime

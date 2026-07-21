@@ -17,7 +17,7 @@ ASX 公告 API(markitdigital) ──┤→ 数据层(SQLite) → 规则层(指�
 
 - **后端**: FastAPI + SQLAlchemy + SQLite(`data/tracker.db`),APScheduler 每个交易日 18:30(Australia/Sydney)自动跑全流程
 - **前端**: React + Vite + TypeScript + Ant Design + ECharts(雷达排名 / 个股详情 / 信号 / 回测 / 日报 / 设置 六页)
-- **AI 分析层**: MVP-1 为纯规则;`app/analysis/ai_stub.py` 预留了 `AnnouncementAnalyzer` 接口,phase-2 接入 Claude 做公告摘要/结构化提取时无需改动 pipeline
+- **AI 分析层**: 默认 `noop` 不做额外调用;`rules_fulltext` 可抓公告文档/PDF 并用规则抽取 grade/宽度/深度/project/commodity;`claude` 在显式允许付费调用后用公告全文上下文做摘要/结构化提取
 
 ## 快速开始
 
@@ -87,6 +87,8 @@ npm run dev
 | `ENABLE_SCHEDULER` | `true` 开启每日自动 pipeline(开发时用 `--reload` 请保持 `false`,避免双跑) |
 | `SCHEDULE_HOUR` / `SCHEDULE_MINUTE` | 默认 18:30 悉尼时间(ASX 16:00 收盘后) |
 | `ASX_ACCESS_TOKEN` | ASX 官网前端内嵌的公开 token,轮换失效时在此覆盖 |
+| `AI_ANALYZER` | `noop` / `rules_fulltext` / `claude`;默认不抓文档、不调用付费模型 |
+| `AI_ANALYZER_ALLOW_PAID_CALLS` / `ANTHROPIC_API_KEY` | 只有 `AI_ANALYZER=claude` 且二者配置满足时才调用 Anthropic |
 
 权重、标签阈值、信号阈值、商品映射、回测基准存在数据库 `app_config` 表,可在**设置页**改,无需重启。
 
@@ -158,5 +160,5 @@ scripts/           # seed_watchlist / validate_seed / run_pipeline / replay_sign
 
 ## Phase-2 方向
 
-- `ClaudeAnalyzer` 实现 `AnnouncementAnalyzer`:MVP 已支持公告标题摘要/结构化提取;后续可扩展到公告 PDF 全文、grade/宽度/深度结构化提取、质量置信度
-- 公告 HTML 抓取 fallback、按回测结果校准权重(数据驱动,不拍脑袋)
+- `ClaudeAnalyzer` 已支持公告文档/PDF 全文上下文;`rules_fulltext` 已支持常见钻探拦截 grade/宽度/深度/project/commodity 抽取
+- 更强的公告 HTML fallback、资源量表格抽取、按回测结果校准权重(数据驱动,不拍脑袋)

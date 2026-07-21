@@ -9,7 +9,7 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
-from ..models import AppConfig
+from ..models import AppConfig, AppConfigHistory
 
 DEFAULTS: dict[str, Any] = {
     "weights": {
@@ -77,11 +77,40 @@ def get_all_config(session: Session) -> dict[str, Any]:
     return merged
 
 
-def set_config(session: Session, key: str, value: Any) -> None:
+def set_config(
+    session: Session,
+    key: str,
+    value: Any,
+    changed_by: str = "system",
+    source: str = "api",
+) -> bool:
     row = session.get(AppConfig, key)
+    old_serialized = row.value if row is not None else None
+    new_serialized = json.dumps(value)
+    if old_serialized == new_serialized:
+        return False
     if row is None:
-        row = AppConfig(key=key, value=json.dumps(value), description=DESCRIPTIONS.get(key, ""))
+        row = AppConfig(key=key, value=new_serialized, description=DESCRIPTIONS.get(key, ""))
         session.add(row)
     else:
-        row.value = json.dumps(value)
+        row.value = new_serialized
+    session.add(
+        AppConfigHistory(
+            key=key,
+            old_value=old_serialized,
+            new_value=new_serialized,
+            changed_by=changed_by,
+            source=source,
+        )
+    )
     session.commit()
+    return True
+
+
+def list_config_history(session: Session, limit: int = 50) -> list[AppConfigHistory]:
+    return (
+        session.query(AppConfigHistory)
+        .order_by(AppConfigHistory.changed_at.desc(), AppConfigHistory.id.desc())
+        .limit(min(limit, 200))
+        .all()
+    )

@@ -5,7 +5,11 @@ import logging
 
 from sqlalchemy.orm import Session
 
-from ..analysis.ai_stub import AnnouncementAnalyzer
+from ..analysis.ai_stub import (
+    AnnouncementAnalyzer,
+    AnnouncementDocumentFetcher,
+    insight_metrics_with_document,
+)
 from ..analysis.classifier import classify
 from ..config import market_tz
 from ..datasources.base import AnnouncementSource
@@ -20,6 +24,7 @@ def sync_announcements(
     source: AnnouncementSource,
     analyzer: AnnouncementAnalyzer,
     count: int = 20,
+    document_fetcher: AnnouncementDocumentFetcher | None = None,
 ) -> dict:
     """Returns {"new": n}. SourceBlockedError is NOT caught here — the pipeline
     handles degradation so it can mark the whole run, not just one stock."""
@@ -51,10 +56,19 @@ def sync_announcements(
             matched_keywords=json.dumps(classification.matched_keywords),
             raw_payload=json.dumps(raw.raw),
         )
-        insight = analyzer.analyze(raw.headline, classification.ann_type)
+        document = None
+        if analyzer.requires_document_text:
+            fetcher = document_fetcher or AnnouncementDocumentFetcher()
+            document = fetcher.fetch(raw.url)
+        insight = analyzer.analyze(
+            raw.headline,
+            classification.ann_type,
+            body_text=document.text if document is not None else None,
+            source_url=raw.url,
+        )
         if insight is not None:
             announcement.ai_summary = insight.summary
-            announcement.ai_metrics = json.dumps(insight.metrics)
+            announcement.ai_metrics = json.dumps(insight_metrics_with_document(insight, document))
         session.add(announcement)
         new += 1
     session.commit()

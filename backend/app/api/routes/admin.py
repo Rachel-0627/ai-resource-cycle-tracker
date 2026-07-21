@@ -8,8 +8,9 @@ from ...models import PipelineRun
 from ...notify.telegram import TelegramNotifier
 from ...schemas import Message, PipelineRunOut
 from ..deps import get_db
+from ..security import require_admin_access
 
-router = APIRouter(prefix="/admin", tags=["admin"])
+router = APIRouter(prefix="/admin", tags=["admin"], dependencies=[Depends(require_admin_access)])
 
 
 def _pipeline_task() -> None:

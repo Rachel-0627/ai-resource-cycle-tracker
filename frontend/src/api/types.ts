@@ -146,3 +146,31 @@ export interface AppConfig {
   benchmark_instrument: string;
   [key: string]: unknown;
 }
+
+export interface ConfigHistory {
+  id: number;
+  key: string;
+  old_value: unknown;
+  new_value: unknown;
+  changed_by: string;
+  source: string;
+  changed_at: string;
+}
+
+export interface WeightCalibrationDiagnostic {
+  subscore: string;
+  correlation: number | null;
+  top_bottom_spread: number | null;
+  raw_signal: number;
+}
+
+export interface WeightCalibration {
+  horizon_days: number;
+  target: string;
+  sample_size: number;
+  low_sample: boolean;
+  current_weights: Record<string, number>;
+  recommended_weights: Record<string, number>;
+  diagnostics: WeightCalibrationDiagnostic[];
+  method: string;
+}
