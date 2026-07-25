@@ -14,6 +14,7 @@ from ..analysis.classifier import classify
 from ..config import market_tz
 from ..datasources.base import AnnouncementSource
 from ..models import Announcement, Stock
+from .qualitative_mining_context import enrich_qualitative_context
 
 logger = logging.getLogger(__name__)
 
@@ -67,8 +68,16 @@ def sync_announcements(
             source_url=raw.url,
         )
         if insight is not None:
+            metrics = insight_metrics_with_document(insight, document)
+            metrics = enrich_qualitative_context(
+                session,
+                stock.code,
+                metrics,
+                ann_type=classification.ann_type,
+                price_sensitive=raw.price_sensitive,
+            )
             announcement.ai_summary = insight.summary
-            announcement.ai_metrics = json.dumps(insight_metrics_with_document(insight, document))
+            announcement.ai_metrics = json.dumps(metrics)
         session.add(announcement)
         new += 1
     session.commit()

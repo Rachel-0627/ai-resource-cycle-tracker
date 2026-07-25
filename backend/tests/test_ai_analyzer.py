@@ -243,5 +243,83 @@ def test_sync_announcements_fetches_document_for_fulltext_analyzer(db_session):
     assert metrics["document"]["text"] == ""
 
 
+def test_sync_announcements_persists_qualitative_context(db_session):
+    stock = Stock(code="TST", name="Test Resources", commodity="gold")
+    db_session.add(stock)
+    db_session.commit()
+    for i, grade_thickness in enumerate([10, 20, 30, 40, 50]):
+        db_session.add(
+            Announcement(
+                stock_id=stock.id,
+                ann_id=f"hist-{i}",
+                headline="Historical drill result",
+                ann_date=datetime(2026, 6, i + 1),
+                url="https://example.com/history.pdf",
+                price_sensitive=True,
+                ann_type="DRILL_RESULTS",
+                type_score=85,
+                matched_keywords="[]",
+                raw_payload="{}",
+                ai_metrics=json.dumps(
+                    {
+                        "intercepts": [
+                            {
+                                "width_m": 10,
+                                "grade": grade_thickness / 10,
+                                "unit": "g/t",
+                                "commodity": "gold",
+                                "depth_m": 80,
+                                "text": "historical result",
+                            }
+                        ],
+                        "project": "Bankan",
+                    }
+                ),
+            )
+        )
+    db_session.commit()
+
+    class FakeSource(AnnouncementSource):
+        def fetch(self, code: str, count: int = 20) -> list[RawAnnouncement]:
+            return [
+                RawAnnouncement(
+                    ann_id="ann-new",
+                    headline="High-Grade Drill Results",
+                    ann_date=datetime(2026, 7, 20, tzinfo=timezone.utc),
+                    url="https://example.com/ann.pdf",
+                    price_sensitive=True,
+                    raw={"id": "ann-new"},
+                )
+            ]
+
+    class FakeFetcher:
+        def fetch(self, url: str):
+            from app.analysis.ai_stub import AnnouncementDocument
+
+            return AnnouncementDocument(
+                url=url,
+                text="Results at the Bankan Project include 10m at 4.5 g/t Au from 70m.",
+                content_type="application/pdf",
+            )
+
+    result = sync_announcements(
+        db_session,
+        stock,
+        FakeSource(),
+        RuleBasedFullTextAnalyzer(),
+        document_fetcher=FakeFetcher(),
+    )
+
+    assert result == {"new": 1}
+    ann = db_session.query(Announcement).filter_by(ann_id="ann-new").one()
+    metrics = json.loads(ann.ai_metrics)
+    context = metrics["qualitative_context"]
+    assert context["grade_thickness"] == 45.0
+    assert context["project_percentile"] == 80.0
+    assert context["trend_vs_previous"] == "improving"
+    assert context["materiality_label"] == "high"
+    assert "company_percentile" not in context
+
+
 def json_dumps(value):
     return json.dumps(value)

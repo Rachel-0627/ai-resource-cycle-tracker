@@ -17,7 +17,18 @@ def announcement_out(ann: Announcement, code: str) -> AnnouncementOut:
         type_score=ann.type_score,
         matched_keywords=json.loads(ann.matched_keywords or "[]"),
         ai_summary=ann.ai_summary,
+        ai_metrics=_json_object_or_none(ann.ai_metrics),
     )
+
+
+def _json_object_or_none(raw: str | None) -> dict | None:
+    if not raw:
+        return None
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError:
+        return None
+    return data if isinstance(data, dict) else None
 
 
 def signal_out(sig: Signal, stock: Stock) -> SignalOut:

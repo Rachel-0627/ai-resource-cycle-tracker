@@ -90,6 +90,7 @@ class AnnouncementOut(BaseModel):
     type_score: float
     matched_keywords: list[str]
     ai_summary: str | None = None
+    ai_metrics: dict[str, Any] | None = None
 
 
 # ---------- signals & backtest ----------

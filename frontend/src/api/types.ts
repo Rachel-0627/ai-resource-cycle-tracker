@@ -48,6 +48,7 @@ export interface Announcement {
   type_score: number;
   matched_keywords: string[];
   ai_summary: string | null;
+  ai_metrics: Record<string, unknown> | null;
 }
 
 export interface SignalReturn {
